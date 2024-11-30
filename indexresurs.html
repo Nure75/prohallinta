@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projektien Resurssien Hallinta</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        nav ul li {
+            background-color: #007BFF;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        nav ul li a:hover {
+            text-decoration: underline;
+        }
+        nav ul li button {
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        nav ul li button:hover {
+            background-color: darkred;
+        }
+        .project-info {
+            display: flex;
+            flex-direction: column;
+            color: white;
+        }
+        .form-container {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+            border-radius: 5px;
+        }
+        .form-container input, .form-container select {
+            margin-bottom: 10px;
+            padding: 10px;
+            width: calc(100% - 22px);
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .form-container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-container button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Projektien Resurssien Hallinta</h1>
+    <nav>
+        <ul id="project-list">
+            <!-- Projektit listataan dynaamisesti -->
+        </ul>
+    </nav>
+
+    <div class="form-container">
+        <h2>Lisää uusi projekti</h2>
+        <form id="project-form">
+            <input type="text" id="project-name" placeholder="Projektin nimi" required>
+            <input type="date" id="start-date" required>
+            <input type="date" id="end-date" required>
+            <select id="priority" required>
+                <option value="1">Prioriteetti 1</option>
+                <option value="2">Prioriteetti 2</option>
+                <option value="3">Prioriteetti 3</option>
+            </select>
+            <button type="submit">Luo projekti</button>
+        </form>
+    </div>
+
+    <script>
+        function getProjects() {
+            return JSON.parse(localStorage.getItem("projects")) || [];
+        }
+
+        function saveProjects(projects) {
+            localStorage.setItem("projects", JSON.stringify(projects));
+        }
+
+        function renderProjects() {
+            const projects = getProjects();
+            const projectList = document.getElementById("project-list");
+            projectList.innerHTML = "";
+            projects.sort((a, b) => a.priority - b.priority).forEach(project => {
+                const listItem = document.createElement("li");
+                listItem.innerHTML = `
+                    <div class="project-info">
+                        <a href="projektiresurs.html?id=${project.id}">${project.name} (Prioriteetti: ${project.priority})</a>
+                        <small>Aloitus: ${project.startDate} | Lopetus: ${project.endDate}</small>
+                    </div>
+                    <button onclick="deleteProject('${project.id}')">Poista</button>
+                `;
+                projectList.appendChild(listItem);
+            });
+        }
+
+        function deleteProject(projectId) {
+            if (confirm("Haluatko varmasti poistaa tämän projektin?")) {
+                const projects = getProjects().filter(project => project.id !== projectId);
+                saveProjects(projects);
+                renderProjects();
+            }
+        }
+
+        function adjustPrioritiesAndDates(newProject) {
+            const projects = getProjects();
+            const affectedProjects = projects.filter(
+                project => project.priority >= newProject.priority
+            );
+
+            affectedProjects.forEach(project => {
+                const previousEndDate = new Date(newProject.endDate);
+                previousEndDate.setDate(previousEndDate.getDate() + 1);
+
+                project.startDate = previousEndDate.toISOString().split("T")[0];
+                const duration = calculateDateDifference(
+                    project.startDate,
+                    project.endDate
+                );
+
+                const newEndDate = new Date(project.startDate);
+                newEndDate.setDate(newEndDate.getDate() + duration - 1);
+                project.endDate = newEndDate.toISOString().split("T")[0];
+                project.priority += 1;
+                newProject = project;
+            });
+
+            saveProjects(projects);
+        }
+
+        function calculateDateDifference(start, end) {
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            return Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        }
+
+        document.getElementById("project-form").addEventListener("submit", event => {
+            event.preventDefault();
+
+            const name = document.getElementById("project-name").value.trim();
+            const startDate = document.getElementById("start-date").value;
+            const endDate = document.getElementById("end-date").value;
+            const priority = parseInt(document.getElementById("priority").value, 10);
+
+            if (!name || !startDate || !endDate) {
+                alert("Täytä kaikki kentät!");
+                return;
+            }
+
+            const newProject = {
+                id: `project-${Date.now()}`,
+                name,
+                startDate,
+                endDate,
+                priority
+            };
+
+            adjustPrioritiesAndDates(newProject);
+
+            const projects = getProjects();
+            projects.push(newProject);
+            saveProjects(projects);
+            renderProjects();
+            event.target.reset();
+            alert("Projekti lisätty onnistuneesti!");
+        });
+
+        renderProjects();
+    </script>
+</body>
+</html>
